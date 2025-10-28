@@ -1,0 +1,435 @@
+{
+  "name": "CDHI Lead Intake Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "lead-intake-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and validate incoming lead data\nconst body = $input.item.json.body;\n\nif (!body || !body.client || !body.property || !body.lead) {\n  throw new Error('Invalid webhook payload: missing required fields');\n}\n\n// Structure data for Invoice Ninja\nreturn {\n  client: {\n    name: `${body.client.first_name} ${body.client.last_name}`,\n    email: body.client.email,\n    phone: body.client.phone || '',\n    address1: body.property.street_address || '',\n    city: body.property.city || '',\n    state: body.property.state || '',\n    postal_code: body.property.zip_code || '',\n    country_id: '840', // USA\n    custom_value1: body.client.client_id // Store Supabase client_id\n  },\n  property: body.property,\n  lead: body.lead,\n  supabase_ids: {\n    client_id: body.client.client_id,\n    property_id: body.property.property_id,\n    lead_id: body.lead.lead_id\n  }\n};"
+      },
+      "id": "parse-webhook-data",
+      "name": "Parse Webhook Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "url": "={{ $env.INVOICENINJA_API_URL }}/api/v1/clients",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "={{ $json.client.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-existing-client",
+      "name": "Check Existing Client",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "invoiceninja-api",
+          "name": "Invoice Ninja API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.data.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "client-exists-check",
+      "name": "Client Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "url": "={{ $env.INVOICENINJA_API_URL }}/api/v1/clients",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $node['Parse Webhook Data'].json.client.name }}"
+            },
+            {
+              "name": "email",
+              "value": "={{ $node['Parse Webhook Data'].json.client.email }}"
+            },
+            {
+              "name": "phone",
+              "value": "={{ $node['Parse Webhook Data'].json.client.phone }}"
+            },
+            {
+              "name": "address1",
+              "value": "={{ $node['Parse Webhook Data'].json.client.address1 }}"
+            },
+            {
+              "name": "city",
+              "value": "={{ $node['Parse Webhook Data'].json.client.city }}"
+            },
+            {
+              "name": "state",
+              "value": "={{ $node['Parse Webhook Data'].json.client.state }}"
+            },
+            {
+              "name": "postal_code",
+              "value": "={{ $node['Parse Webhook Data'].json.client.postal_code }}"
+            },
+            {
+              "name": "country_id",
+              "value": "840"
+            },
+            {
+              "name": "custom_value1",
+              "value": "={{ $node['Parse Webhook Data'].json.supabase_ids.client_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-client",
+      "name": "Create Client",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1050, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "invoiceninja-api",
+          "name": "Invoice Ninja API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Use existing client from search results\nconst existingClient = $input.item.json.data[0];\n\nreturn {\n  client_id: existingClient.id,\n  client_name: existingClient.name,\n  client_email: existingClient.email\n};"
+      },
+      "id": "use-existing-client",
+      "name": "Use Existing Client",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-client-data",
+      "name": "Merge Client Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare quote data\nconst clientId = $json.client_id || $json.data?.id;\nconst leadData = $node['Parse Webhook Data'].json.lead;\nconst propertyData = $node['Parse Webhook Data'].json.property;\n\n// Calculate estimate based on service type (placeholder logic)\nconst serviceEstimates = {\n  'Kitchen Remodel': 15000,\n  'Bathroom Remodel': 8000,\n  'Deck Installation': 12000,\n  'Window Installation': 5000,\n  'Other': 3000\n};\n\nconst estimatedAmount = serviceEstimates[leadData.service_type] || 3000;\n\nreturn {\n  client_id: clientId,\n  quote: {\n    client_id: clientId,\n    date: new Date().toISOString().split('T')[0],\n    due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 14 days\n    public_notes: `Project: ${leadData.service_type}\\n\\nProperty Address:\\n${propertyData.street_address}\\n${propertyData.city}, ${propertyData.state} ${propertyData.zip_code}\\n\\nDetails:\\n${leadData.message || 'No additional details provided.'}`,\n    line_items: [\n      {\n        product_key: leadData.service_type,\n        notes: `${leadData.service_type} - Initial Estimate`,\n        cost: estimatedAmount,\n        qty: 1,\n        tax_name1: 'Sales Tax',\n        tax_rate1: 6.5\n      }\n    ],\n    custom_value1: leadData.lead_id // Store Supabase lead_id\n  }\n};"
+      },
+      "id": "prepare-quote",
+      "name": "Prepare Quote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "url": "={{ $env.INVOICENINJA_API_URL }}/api/v1/quotes",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.quote) }}",
+        "options": {}
+      },
+      "id": "create-quote",
+      "name": "Create Quote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "invoiceninja-api",
+          "name": "Invoice Ninja API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract quote details for email\nconst quote = $json.data;\nconst clientData = $node['Merge Client Data'].json;\nconst leadData = $node['Parse Webhook Data'].json.lead;\n\nreturn {\n  to: clientData.client_email || $node['Parse Webhook Data'].json.client.email,\n  client_name: clientData.client_name || $node['Parse Webhook Data'].json.client.name,\n  quote_number: quote.number,\n  quote_amount: quote.amount,\n  quote_url: `${process.env.INVOICENINJA_PUBLIC_URL}/client/quote/${quote.invitations[0]?.key || ''}`,\n  service_type: leadData.service_type,\n  message: leadData.message\n};"
+      },
+      "id": "prepare-email",
+      "name": "Prepare Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "Your CD Home Improvements Quote - {{ $json.quote_number }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background-color: #2c3e50; color: white; padding: 20px; text-align: center; }\n    .content { background-color: #f9f9f9; padding: 30px; }\n    .cta-button { display: inline-block; background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }\n    .footer { text-align: center; padding: 20px; color: #777; font-size: 12px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>CD Home Improvements</h1>\n      <p>Rockford's Premier Home Renovation Contractor</p>\n    </div>\n    \n    <div class=\"content\">\n      <h2>Hi {{ $json.client_name }},</h2>\n      \n      <p>Thank you for your interest in <strong>{{ $json.service_type }}</strong>!</p>\n      \n      <p>We've prepared a detailed quote for your project. You can review and approve it by clicking the button below:</p>\n      \n      <div style=\"text-align: center;\">\n        <a href=\"{{ $json.quote_url }}\" class=\"cta-button\">View Your Quote</a>\n      </div>\n      \n      <p><strong>Quote Number:</strong> {{ $json.quote_number }}<br>\n      <strong>Estimated Amount:</strong> ${{ $json.quote_amount }}</p>\n      \n      <p>Once you approve the quote, we'll convert it to an invoice and get your project scheduled. You can also pay securely online through our client portal.</p>\n      \n      <p>If you have any questions or need modifications to the quote, please don't hesitate to reach out to us at:</p>\n      \n      <ul>\n        <li>Phone: (815) 555-0123</li>\n        <li>Email: info@cdhomeimprovementsrockford.com</li>\n      </ul>\n      \n      <p>We look forward to working with you!</p>\n      \n      <p>Best regards,<br>\n      <strong>CD Home Improvements Team</strong></p>\n    </div>\n    \n    <div class=\"footer\">\n      <p>&copy; 2025 CD Home Improvements Rockford | All Rights Reserved</p>\n      <p>This is an automated message. Please do not reply directly to this email.</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "send-client-email",
+      "name": "Send Client Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [2050, 300],
+      "credentials": {
+        "smtp": {
+          "id": "email-smtp",
+          "name": "Email SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare internal notification\nconst quote = $node['Create Quote'].json.data;\nconst clientData = $node['Merge Client Data'].json;\nconst leadData = $node['Parse Webhook Data'].json.lead;\nconst propertyData = $node['Parse Webhook Data'].json.property;\n\nreturn {\n  subject: `New Lead: ${leadData.service_type} - ${clientData.client_name}`,\n  client_name: clientData.client_name,\n  client_email: clientData.client_email,\n  client_phone: $node['Parse Webhook Data'].json.client.phone,\n  service_type: leadData.service_type,\n  property_address: `${propertyData.street_address}, ${propertyData.city}, ${propertyData.state} ${propertyData.zip_code}`,\n  message: leadData.message || 'No additional details',\n  quote_number: quote.number,\n  quote_amount: quote.amount,\n  admin_url: `${process.env.INVOICENINJA_API_URL}/quotes/${quote.id}`\n};"
+      },
+      "id": "prepare-internal-notification",
+      "name": "Prepare Internal Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2050, 500]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.EMAIL_FROM }}",
+        "toEmail": "={{ $env.INTERNAL_NOTIFICATION_EMAIL || 'admin@cdhomeimprovementsrockford.com' }}",
+        "subject": "{{ $json.subject }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background-color: #27ae60; color: white; padding: 20px; text-align: center; }\n    .content { background-color: #f9f9f9; padding: 30px; }\n    .info-block { background-color: white; padding: 15px; margin: 10px 0; border-left: 4px solid #3498db; }\n    .cta-button { display: inline-block; background-color: #e74c3c; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎉 New Lead Received!</h1>\n    </div>\n    \n    <div class=\"content\">\n      <h2>Lead Details</h2>\n      \n      <div class=\"info-block\">\n        <strong>Client:</strong> {{ $json.client_name }}<br>\n        <strong>Email:</strong> {{ $json.client_email }}<br>\n        <strong>Phone:</strong> {{ $json.client_phone }}<br>\n        <strong>Service:</strong> {{ $json.service_type }}\n      </div>\n      \n      <div class=\"info-block\">\n        <strong>Property Address:</strong><br>\n        {{ $json.property_address }}\n      </div>\n      \n      <div class=\"info-block\">\n        <strong>Message:</strong><br>\n        {{ $json.message }}\n      </div>\n      \n      <div class=\"info-block\">\n        <strong>Quote Created:</strong> {{ $json.quote_number }}<br>\n        <strong>Amount:</strong> ${{ $json.quote_amount }}\n      </div>\n      \n      <div style=\"text-align: center;\">\n        <a href=\"{{ $json.admin_url }}\" class=\"cta-button\">View in Invoice Ninja</a>\n      </div>\n      \n      <p><em>Client has been sent an email with the quote link.</em></p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "send-internal-notification",
+      "name": "Send Internal Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [2250, 500],
+      "credentials": {
+        "smtp": {
+          "id": "email-smtp",
+          "name": "Email SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, quote_id: $node['Create Quote'].json.data.id, quote_number: $node['Create Quote'].json.data.number }) }}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2250, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Webhook Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Webhook Data": {
+      "main": [
+        [
+          {
+            "node": "Check Existing Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Existing Client": {
+      "main": [
+        [
+          {
+            "node": "Client Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client Exists?": {
+      "main": [
+        [
+          {
+            "node": "Use Existing Client",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Client": {
+      "main": [
+        [
+          {
+            "node": "Merge Client Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Existing Client": {
+      "main": [
+        [
+          {
+            "node": "Merge Client Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Client Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Quote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Quote": {
+      "main": [
+        [
+          {
+            "node": "Create Quote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Quote": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Internal Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email": {
+      "main": [
+        [
+          {
+            "node": "Send Client Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Client Email": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Internal Notification": {
+      "main": [
+        [
+          {
+            "node": "Send Internal Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "leads",
+      "id": "1"
+    },
+    {
+      "name": "invoiceninja",
+      "id": "2"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-28T00:00:00.000Z",
+  "versionId": "1"
+}

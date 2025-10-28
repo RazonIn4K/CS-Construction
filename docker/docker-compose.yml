@@ -1,0 +1,365 @@
+version: '3.9'
+
+# ==============================================================================
+# CS-Construction / CDHI Docker Stack
+# ==============================================================================
+# Services: Caddy, Invoice Ninja (3 containers), MariaDB, n8n, Uptime Kuma
+# Networks: Frontend (public) + Backend (isolated)
+# Production-ready with health checks, resource limits, and security hardening
+# ==============================================================================
+
+name: cdhi-stack
+
+# ==============================================================================
+# NETWORKS
+# ==============================================================================
+networks:
+  # Frontend network - services exposed via Caddy reverse proxy
+  frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+
+  # Backend network - internal services only (database, queue workers)
+  backend:
+    driver: bridge
+    internal: true  # No external internet access
+    ipam:
+      config:
+        - subnet: 172.19.0.0/16
+
+# ==============================================================================
+# VOLUMES
+# ==============================================================================
+volumes:
+  # Database storage
+  mariadb_data:
+    driver: local
+
+  # Invoice Ninja file storage
+  invoiceninja_public:
+    driver: local
+  invoiceninja_storage:
+    driver: local
+
+  # n8n workflow data
+  n8n_data:
+    driver: local
+
+  # Uptime Kuma monitoring data
+  uptime_kuma_data:
+    driver: local
+
+  # Caddy reverse proxy data (certificates, config)
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+# ==============================================================================
+# SERVICES
+# ==============================================================================
+services:
+
+  # ============================================================================
+  # MariaDB - Database Layer
+  # ============================================================================
+  mariadb:
+    image: mariadb:10.11
+    container_name: cdhi-mariadb
+    restart: unless-stopped
+    networks:
+      - backend
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./mariadb-config/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE:-ninjadb}
+      MYSQL_USER: ${DB_USER:-ninja}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MARIADB_AUTO_UPGRADE: 1
+      TZ: ${TZ:-America/Chicago}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # ============================================================================
+  # Invoice Ninja - Main Application Container
+  # ============================================================================
+  invoiceninja:
+    image: invoiceninja/invoiceninja:5
+    container_name: cdhi-invoiceninja
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+    volumes:
+      - invoiceninja_public:/var/www/app/public
+      - invoiceninja_storage:/var/www/app/storage
+    environment:
+      # Core Application
+      APP_ENV: production
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_URL: ${INVOICENINJA_URL}
+      APP_KEY: ${INVOICENINJA_APP_KEY}
+      APP_CIPHER: AES-256-CBC
+
+      # Database Connection
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-ninjadb}
+      DB_USERNAME: ${DB_USER:-ninja}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      # Mail Configuration
+      MAIL_MAILER: smtp
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-"CD Home Improvements"}
+
+      # Stripe Integration
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+
+      # Security & Performance
+      REQUIRE_HTTPS: true
+      SESSION_DRIVER: file
+      CACHE_DRIVER: file
+      QUEUE_CONNECTION: database
+      TRUSTED_PROXIES: "*"
+
+      # Docker-specific
+      IS_DOCKER: true
+
+      # Timezone
+      TZ: ${TZ:-America/Chicago}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ============================================================================
+  # Invoice Ninja - Queue Worker (Background Jobs)
+  # ============================================================================
+  invoiceninja-queue:
+    image: invoiceninja/invoiceninja:5
+    container_name: cdhi-invoiceninja-queue
+    restart: unless-stopped
+    networks:
+      - backend
+    volumes:
+      - invoiceninja_storage:/var/www/app/storage
+    environment:
+      # Same environment as main app
+      APP_ENV: production
+      APP_DEBUG: false
+      APP_URL: ${INVOICENINJA_URL}
+      APP_KEY: ${INVOICENINJA_APP_KEY}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-ninjadb}
+      DB_USERNAME: ${DB_USER:-ninja}
+      DB_PASSWORD: ${DB_PASSWORD}
+      QUEUE_CONNECTION: database
+      IS_DOCKER: true
+      TZ: ${TZ:-America/Chicago}
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      invoiceninja:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ============================================================================
+  # Invoice Ninja - Scheduler (Cron Jobs)
+  # ============================================================================
+  invoiceninja-scheduler:
+    image: invoiceninja/invoiceninja:5
+    container_name: cdhi-invoiceninja-scheduler
+    restart: unless-stopped
+    networks:
+      - backend
+    volumes:
+      - invoiceninja_storage:/var/www/app/storage
+    environment:
+      APP_ENV: production
+      APP_DEBUG: false
+      APP_URL: ${INVOICENINJA_URL}
+      APP_KEY: ${INVOICENINJA_APP_KEY}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-ninjadb}
+      DB_USERNAME: ${DB_USER:-ninja}
+      DB_PASSWORD: ${DB_PASSWORD}
+      IS_DOCKER: true
+      TZ: ${TZ:-America/Chicago}
+    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction & sleep 60; done"
+    depends_on:
+      invoiceninja:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  # ============================================================================
+  # n8n - Workflow Automation Platform
+  # ============================================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: cdhi-n8n
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      # Core Configuration
+      N8N_HOST: ${N8N_HOST}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+
+      # Security - CRITICAL
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_BASIC_AUTH_ACTIVE: true
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_SECURE_COOKIE: true
+
+      # Execution & Storage
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: true
+
+      # Timezone
+      GENERIC_TIMEZONE: ${TZ:-America/Chicago}
+
+      # Optional Features
+      N8N_METRICS: true
+      N8N_DIAGNOSTICS_ENABLED: false
+      N8N_HIRING_BANNER_ENABLED: false
+      N8N_PERSONALIZATION_ENABLED: false
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ============================================================================
+  # Uptime Kuma - Service Monitoring & Alerting
+  # ============================================================================
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: cdhi-uptime-kuma
+    restart: unless-stopped
+    networks:
+      - frontend
+    volumes:
+      - uptime_kuma_data:/app/data
+    environment:
+      TZ: ${TZ:-America/Chicago}
+    healthcheck:
+      test: ["CMD-SHELL", "node extra/healthcheck.js"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # ============================================================================
+  # Caddy - Reverse Proxy with Automatic HTTPS
+  # ============================================================================
+  caddy:
+    image: caddy:2-alpine
+    container_name: cdhi-caddy
+    restart: unless-stopped
+    networks:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./caddy-logs:/var/log/caddy
+    environment:
+      ACME_AGREE: true
+      TZ: ${TZ:-America/Chicago}
+    depends_on:
+      invoiceninja:
+        condition: service_healthy
+      n8n:
+        condition: service_started
+      uptime-kuma:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M

@@ -1,0 +1,176 @@
+# ==============================================================================
+# Caddyfile - Caddy v2 Reverse Proxy Configuration
+# ==============================================================================
+# Automatic HTTPS with Let's Encrypt for CS-Construction services
+# ==============================================================================
+
+{
+    # Global Options
+    email admin@cdhomeimprovementsrockford.com
+
+    # Let's Encrypt Production (default)
+    # Use staging for testing: acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+    acme_ca https://acme-v02.api.letsencrypt.org/directory
+
+    # Server configuration
+    servers {
+        protocol {
+            strict_sni_host on
+        }
+    }
+}
+
+# ==============================================================================
+# Invoice Ninja Client Portal
+# ==============================================================================
+portal.cdhomeimprovementsrockford.com {
+    # Reverse proxy to Invoice Ninja app container
+    reverse_proxy invoiceninja:80 {
+        # Forward real client information
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
+
+    # Security Headers
+    header {
+        # HSTS - Force HTTPS for 1 year
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+        # Prevent MIME type sniffing
+        X-Content-Type-Options "nosniff"
+
+        # Clickjacking protection
+        X-Frame-Options "SAMEORIGIN"
+
+        # XSS Protection (legacy browsers)
+        X-XSS-Protection "1; mode=block"
+
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Remove server information disclosure
+        -Server
+    }
+
+    # Structured logging
+    log {
+        output file /var/log/caddy/portal.log {
+            roll_size 100mb
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+
+    # Optional: Rate limiting (requires caddy-ratelimit plugin)
+    # rate_limit {
+    #     zone portal {
+    #         key {remote_host}
+    #         events 100
+    #         window 1m
+    #     }
+    # }
+}
+
+# Redirect www subdomain
+www.portal.cdhomeimprovementsrockford.com {
+    redir https://portal.cdhomeimprovementsrockford.com{uri} permanent
+}
+
+# ==============================================================================
+# n8n Workflow Automation
+# ==============================================================================
+automate.cdhomeimprovementsrockford.com {
+    # Reverse proxy to n8n container
+    reverse_proxy n8n:5678 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+
+        # WebSocket support (for real-time updates)
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
+    }
+
+    # Optional: Restrict admin routes to specific IPs
+    # @admin {
+    #     path /workflows /executions /credentials /settings
+    # }
+    # handle @admin {
+    #     @denied not remote_ip 192.168.1.0/24 10.0.0.0/8
+    #     respond @denied "Access Denied" 403
+    #     reverse_proxy n8n:5678
+    # }
+
+    # Security Headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"  # Stricter for admin panel
+        X-XSS-Protection "1; mode=block"
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/automate.log {
+            roll_size 100mb
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+}
+
+# ==============================================================================
+# Uptime Kuma Monitoring Dashboard
+# ==============================================================================
+status.cdhomeimprovementsrockford.com {
+    # Reverse proxy to Uptime Kuma container
+    reverse_proxy uptime-kuma:3001 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # WebSocket support (critical for Uptime Kuma)
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
+    }
+
+    # Optional: Basic auth for additional security
+    # basicauth {
+    #     admin $2a$14$Zkx19XLiW6VYouLHR5NmfOFU0z2GTNmpkT/5IG46ViXXfvMDPx.7O
+    # }
+
+    # Security Headers
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/status.log {
+            roll_size 100mb
+            roll_keep 10
+            roll_keep_for 720h
+        }
+        format json
+    }
+}
+
+# ==============================================================================
+# Optional: Health Check Endpoint
+# ==============================================================================
+health.cdhomeimprovementsrockford.com {
+    respond /health "OK" 200
+
+    log {
+        output discard
+    }
+}
