@@ -26,12 +26,6 @@ CREATE INDEX idx_webhook_dlq_received ON webhook_event_dlq(received_at DESC);
 CREATE INDEX idx_webhook_dlq_replayed ON webhook_event_dlq(replayed_at) WHERE replayed_at IS NULL;
 CREATE INDEX idx_webhook_dlq_event_type ON webhook_event_dlq(event_source, event_type);
 
--- Add updated_at trigger
-CREATE TRIGGER set_webhook_dlq_updated_at
-  BEFORE UPDATE ON webhook_event_dlq
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
-
 -- Add comment
 COMMENT ON TABLE webhook_event_dlq IS 'Dead letter queue for failed webhook events that need manual replay';
 COMMENT ON COLUMN webhook_event_dlq.event_source IS 'Source system: stripe, invoiceninja, or n8n';
