@@ -5,10 +5,8 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
 
-  // Enable instrumentation for Sentry
-  experimental: {
-    instrumentationHook: true,
-  },
+  // instrumentation.ts is now available by default in Next.js 16
+  // No need for experimental.instrumentationHook
 
   images: {
     domains: [],
