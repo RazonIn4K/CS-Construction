@@ -46,22 +46,14 @@ if (shouldInitialize) {
 
     // Capture Web Vitals (LCP, FID, CLS)
     integrations: [
-      Sentry.browserTracingIntegration({
-        // Trace navigation and page loads
-        tracePropagationTargets: [
-          'localhost',
-          /^https:\/\/cdhomeimprovementsrockford\.com/,
-          /^https:\/\/.*\.vercel\.app/,
-        ],
-      }),
+      Sentry.browserTracingIntegration(),
 
       // Session Replay for error reproduction
       Sentry.replayIntegration({
-        // Sample rate for session replay (0.0 - 1.0)
-        // Only capture 10% of normal sessions
-        sessionSampleRate: ENVIRONMENT === 'production' ? 0.1 : 0.5,
         // Capture 100% of sessions with errors
-        errorSampleRate: 1.0,
+        replaysOnErrorSampleRate: 1.0,
+        // Sample 10% of normal sessions in production
+        replaysSessionSampleRate: ENVIRONMENT === 'production' ? 0.1 : 0.5,
         // Mask all text content for privacy
         maskAllText: true,
         // Block all media (images, video, audio)

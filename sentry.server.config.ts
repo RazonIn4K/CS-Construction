@@ -45,10 +45,7 @@ if (shouldInitialize) {
 
     // Trace HTTP requests to external services
     integrations: [
-      Sentry.httpIntegration({
-        // Trace outgoing HTTP requests
-        tracing: true,
-      }),
+      Sentry.httpIntegration(),
     ],
 
     // ==============================================================================
@@ -79,10 +76,10 @@ if (shouldInitialize) {
         }
 
         // Remove sensitive query parameters
-        if (event.request.query_string) {
+        if (event.request.query_string && typeof event.request.query_string === 'string') {
           event.request.query_string = event.request.query_string
             .split('&')
-            .filter((param) => !param.startsWith('token=') && !param.startsWith('key='))
+            .filter((param: string) => !param.startsWith('token=') && !param.startsWith('key='))
             .join('&');
         }
       }

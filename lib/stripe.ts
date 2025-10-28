@@ -13,7 +13,7 @@ if (!stripeSecretKey) {
  * Configured with latest API version and TypeScript types
  */
 export const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-09-30.clover',
   typescript: true,
   appInfo: {
     name: 'CS-Construction',
@@ -163,7 +163,11 @@ export async function getPaymentMethod(paymentMethodId: string) {
 export function extractPaymentMethod(
   paymentIntent: Stripe.PaymentIntent
 ): string {
-  const charges = paymentIntent.charges?.data;
+  // Type assertion for expanded charges
+  const expandedPI = paymentIntent as Stripe.PaymentIntent & {
+    charges?: { data: Stripe.Charge[] };
+  };
+  const charges = expandedPI.charges?.data;
   if (charges && charges.length > 0) {
     const paymentMethodDetails = charges[0].payment_method_details;
     if (paymentMethodDetails) {
