@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "doppler run -- next dev",
+    "dev:local": "next dev",
+    "build": "doppler run --config production -- next build",
+    "build:local": "next build",
+    "start": "doppler run --config production -- next start",
+    "start:local": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit"
   },
