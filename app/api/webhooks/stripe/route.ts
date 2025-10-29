@@ -148,7 +148,7 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
     .eq('invoice_id', invoiceId)
     .single();
 
-  if (invoiceSummary && invoiceSummary.balance_due <= 0) {
+  if (invoiceSummary && invoiceSummary.balance_due !== null && invoiceSummary.balance_due <= 0) {
     // Mark invoice as paid
     const invoiceUpdate: InvoiceUpdate = {
       status: 'paid',
@@ -164,7 +164,7 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event) {
     } else {
       logger.info('Invoice marked as paid', { invoice_id: invoiceId });
     }
-  } else if (invoiceSummary && invoiceSummary.balance_due > 0) {
+  } else if (invoiceSummary && invoiceSummary.balance_due !== null && invoiceSummary.balance_due > 0) {
     // Partial payment
     const invoiceUpdate: InvoiceUpdate = {
       status: 'partial',
