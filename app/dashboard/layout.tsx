@@ -25,20 +25,35 @@ const Sidebar = () => {
         </h1>
       </div>
       <nav className="mt-6 flex-1">
-        <a href="/dashboard" className="block px-6 py-3 text-gray-700 hover:bg-gray-200 font-semibold bg-gray-100 border-r-4 border-blue-600">
-          Dashboard
+        <a
+          href="/dashboard"
+          className="block px-6 py-3 text-gray-700 hover:bg-gray-200 transition-colors"
+        >
+          📊 Dashboard
         </a>
-        <a href="/dashboard/projects" className="block px-6 py-3 text-gray-700 hover:bg-gray-200">
-          Projects
+        <a
+          href="/dashboard/leads"
+          className="block px-6 py-3 text-gray-700 hover:bg-gray-200 transition-colors"
+        >
+          🆕 Leads
         </a>
-        <a href="/dashboard/invoices" className="block px-6 py-3 text-gray-700 hover:bg-gray-200">
-          Invoices
+        <a
+          href="/dashboard/clients"
+          className="block px-6 py-3 text-gray-700 hover:bg-gray-200 transition-colors"
+        >
+          👥 Clients
         </a>
-        <a href="/dashboard/clients" className="block px-6 py-3 text-gray-700 hover:bg-gray-200">
-          Clients
+        <a
+          href="/dashboard/projects"
+          className="block px-6 py-3 text-gray-700 hover:bg-gray-200 transition-colors"
+        >
+          🔨 Projects
         </a>
-        <a href="/dashboard/leads" className="block px-6 py-3 text-gray-700 hover:bg-gray-200">
-          Leads
+        <a
+          href="/dashboard/invoices"
+          className="block px-6 py-3 text-gray-700 hover:bg-gray-200 transition-colors"
+        >
+          💰 Invoices
         </a>
       </nav>
       <div className="p-6 border-t border-gray-200">
