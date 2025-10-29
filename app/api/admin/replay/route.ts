@@ -22,11 +22,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin as adminDb } from '@/lib/supabase';
+import { requireAdminClient } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import Stripe from 'stripe';
-import { verifyStripeWebhook } from '@/lib/stripe';
+import { timingSafeEqual } from 'crypto';
 
 // ==============================================================================
 // Types & Validation
@@ -44,7 +44,7 @@ interface DLQEvent {
   event_source: string;
   event_type: string;
   payload: any;
-  error_message: string;
+  error_message: string | null;
   received_at: string;
   replayed_at: string | null;
   replay_count: number;
@@ -87,7 +87,7 @@ function verifyAdminAuth(request: NextRequest): boolean {
     return false;
   }
 
-  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+  return timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
 // ==============================================================================
@@ -213,6 +213,7 @@ async function replayInvoiceNinjaEvent(event: DLQEvent): Promise<void> {
 async function handleStripePaymentIntentSucceeded(
   event: Stripe.Event
 ): Promise<void> {
+  const adminDb = requireAdminClient();
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
   const invoiceId = paymentIntent.metadata.invoice_id;
@@ -249,25 +250,22 @@ async function handleStripePaymentIntentSucceeded(
   // Insert payment
   const { error: paymentError } = await adminDb.from('payments').insert({
     invoice_id: invoice.invoice_id,
-    client_id: invoice.client_id,
-    job_id: invoice.job_id,
     external_id: event.id,
     amount: paymentIntent.amount / 100, // Convert cents to dollars
-    payment_method: 'CREDIT_CARD',
-    payment_date: new Date(paymentIntent.created * 1000).toISOString(),
-    transaction_id: paymentIntent.id,
-    status: 'COMPLETED',
+    method: 'card',
+    paid_at: new Date(paymentIntent.created * 1000).toISOString(),
+    status: 'applied',
   });
 
   if (paymentError) {
     throw new Error(`Failed to insert payment: ${paymentError.message}`);
   }
 
-  // Update invoice status to PAID
+  // Update invoice status to paid
   const { error: updateError } = await adminDb
     .from('invoices')
     .update({
-      status: 'PAID',
+      status: 'paid',
       paid_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -302,6 +300,7 @@ async function handleStripeChargeSucceeded(event: Stripe.Event): Promise<void> {
 }
 
 async function handleStripeChargeRefunded(event: Stripe.Event): Promise<void> {
+  const adminDb = requireAdminClient();
   const charge = event.data.object as Stripe.Charge;
 
   logger.info('Processing charge refund', {
@@ -325,7 +324,7 @@ async function handleStripeChargeRefunded(event: Stripe.Event): Promise<void> {
   const { error: updateError } = await adminDb
     .from('payments')
     .update({
-      status: 'REFUNDED',
+      status: 'refunded',
       updated_at: new Date().toISOString(),
     })
     .eq('payment_id', payment.payment_id);
@@ -366,6 +365,8 @@ async function handleInvoiceNinjaPaymentCreated(payload: any): Promise<void> {
 // ==============================================================================
 
 export async function POST(request: NextRequest) {
+  const adminDb = requireAdminClient();
+
   try {
     // Verify admin authentication
     if (!verifyAdminAuth(request)) {
@@ -499,7 +500,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Validation error',
-          details: error.errors,
+          details: error.issues,
         },
         { status: 400 }
       );
@@ -517,6 +518,8 @@ export async function POST(request: NextRequest) {
 // ==============================================================================
 
 export async function GET(request: NextRequest) {
+  const adminDb = requireAdminClient();
+
   try {
     // Verify admin authentication
     if (!verifyAdminAuth(request)) {

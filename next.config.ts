@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
   // instrumentation.ts is now available by default in Next.js 16
   // No need for experimental.instrumentationHook
 
+  // Explicitly set workspace root to avoid lockfile detection issues
+  turbopack: {
+    root: process.cwd(),
+  },
+
   images: {
     domains: [],
   },

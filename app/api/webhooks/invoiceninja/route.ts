@@ -17,7 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin as adminDb } from '@/lib/supabase';
+import { requireAdminClient } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import crypto from 'crypto';
 
@@ -150,6 +150,7 @@ function verifyInvoiceNinjaWebhook(
  * When a quote is approved, sync the status to Supabase
  */
 async function handleQuoteApproved(payload: InvoiceNinjaWebhookPayload) {
+  const adminDb = requireAdminClient();
   const quote = payload.quote;
   if (!quote) {
     logger.warn('Quote data missing in quote.approved event', { payload });
@@ -177,11 +178,11 @@ async function handleQuoteApproved(payload: InvoiceNinjaWebhookPayload) {
       return;
     }
 
-    // Update estimate status to APPROVED
+    // Update estimate status to approved
     const { error: updateError } = await adminDb
       .from('estimates')
       .update({
-        status: 'APPROVED',
+        status: 'approved',
         approved_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -215,6 +216,7 @@ async function handleQuoteApproved(payload: InvoiceNinjaWebhookPayload) {
  * Sync new invoices to Supabase
  */
 async function handleInvoiceCreated(payload: InvoiceNinjaWebhookPayload) {
+  const adminDb = requireAdminClient();
   const invoice = payload.invoice;
   if (!invoice) {
     logger.warn('Invoice data missing in invoice.created event', { payload });
@@ -332,6 +334,7 @@ async function handleInvoiceCreated(payload: InvoiceNinjaWebhookPayload) {
  * Sync invoice status changes to Supabase
  */
 async function handleInvoiceUpdated(payload: InvoiceNinjaWebhookPayload) {
+  const adminDb = requireAdminClient();
   const invoice = payload.invoice;
   if (!invoice) {
     logger.warn('Invoice data missing in invoice.updated event', { payload });
@@ -410,6 +413,7 @@ async function handleInvoiceUpdated(payload: InvoiceNinjaWebhookPayload) {
  * Sync payments to Supabase
  */
 async function handlePaymentCreated(payload: InvoiceNinjaWebhookPayload) {
+  const adminDb = requireAdminClient();
   const payment = payload.payment;
   if (!payment) {
     logger.warn('Payment data missing in payment.created event', { payload });
@@ -457,14 +461,11 @@ async function handlePaymentCreated(payload: InvoiceNinjaWebhookPayload) {
     // Insert payment
     const { error: insertError } = await adminDb.from('payments').insert({
       invoice_id: invoice.invoice_id,
-      client_id: invoice.client_id,
-      job_id: invoice.job_id,
       external_id: payment.id,
       amount: payment.amount,
-      payment_method: 'CREDIT_CARD', // Default, can be refined
-      payment_date: payment.date,
-      transaction_id: payment.transaction_reference || null,
-      status: 'COMPLETED',
+      method: 'card', // Default, can be refined
+      paid_at: payment.date,
+      status: 'applied',
     });
 
     if (insertError) {
@@ -495,6 +496,7 @@ async function handlePaymentCreated(payload: InvoiceNinjaWebhookPayload) {
 // ==============================================================================
 
 export async function POST(request: NextRequest) {
+  const adminDb = requireAdminClient();
   let rawBody = '';
 
   try {
