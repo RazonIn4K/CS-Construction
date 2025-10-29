@@ -15,11 +15,9 @@ const JobSchema = z.object({
   property_id: z.string().uuid('Valid property ID is required'),
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  status: z.enum(['lead', 'estimate', 'scheduled', 'in_progress', 'completed', 'cancelled']),
+  status: z.enum(['lead', 'pending', 'active', 'on_hold', 'complete', 'closed']),
   start_date: z.string().optional(),
-  estimated_completion_date: z.string().optional(),
-  actual_completion_date: z.string().optional(),
-  total_amount: z.number().min(0).optional(),
+  end_date: z.string().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -121,21 +119,10 @@ export async function POST(request: NextRequest) {
 
     const jobData = validationResult.data;
 
-    // Generate job number (format: JOB-YYYY-NNNN)
-    const year = new Date().getFullYear();
-    const { count } = await supabase
-      .from('jobs')
-      .select('*', { count: 'exact', head: true });
-
-    const jobNumber = `JOB-${year}-${String((count || 0) + 1).padStart(4, '0')}`;
-
     // Create job
     const { data: job, error } = await supabase
       .from('jobs')
-      .insert([{
-        ...jobData,
-        job_number: jobNumber,
-      }])
+      .insert([jobData])
       .select(`
         *,
         clients (

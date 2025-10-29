@@ -13,11 +13,9 @@ import { z } from 'zod';
 const JobUpdateSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  status: z.enum(['lead', 'estimate', 'scheduled', 'in_progress', 'completed', 'cancelled']).optional(),
+  status: z.enum(['lead', 'pending', 'active', 'on_hold', 'complete', 'closed']).optional(),
   start_date: z.string().optional(),
-  estimated_completion_date: z.string().optional(),
-  actual_completion_date: z.string().optional(),
-  total_amount: z.number().min(0).optional(),
+  end_date: z.string().optional(), // Renamed from estimated_completion_date
 });
 
 export async function GET(

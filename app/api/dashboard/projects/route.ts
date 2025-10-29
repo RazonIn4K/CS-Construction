@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
           street_address
         )
       `)
-      .in('status', ['scheduled', 'in_progress'])
+      .in('status', ['pending', 'active'])
       .order('start_date', { ascending: true })
       .limit(10);
 
