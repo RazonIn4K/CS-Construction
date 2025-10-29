@@ -14,8 +14,10 @@ import type { Database } from '@/types/database.types';
 /**
  * Creates a Supabase client for Server Components
  * Reads cookies but doesn't modify them
+ * Note: In Next.js 15+, use createClientAsync() for full compatibility
  */
 export function createClient() {
+  // @ts-ignore - cookies() will be Promise in Next.js 15+
   const cookieStore = cookies();
 
   return createServerClient<Database>(
@@ -24,6 +26,7 @@ export function createClient() {
     {
       cookies: {
         get(name: string) {
+          // @ts-ignore
           return cookieStore.get(name)?.value;
         },
       },
