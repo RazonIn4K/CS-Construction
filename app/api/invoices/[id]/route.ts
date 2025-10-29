@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase-server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = createClient();
@@ -21,6 +21,9 @@ export async function GET(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Await params (Next.js 16)
+    const { id } = await params;
 
     // Get invoice with all related data
     const { data: invoice, error } = await supabase
@@ -56,7 +59,7 @@ export async function GET(
           transaction_id
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {

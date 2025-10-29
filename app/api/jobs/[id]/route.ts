@@ -20,9 +20,10 @@ const JobUpdateSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = createClient();
 
     // Verify authentication
@@ -71,7 +72,7 @@ export async function GET(
           due_date
         )
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -88,9 +89,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = createClient();
 
     // Verify authentication
@@ -119,7 +121,7 @@ export async function PATCH(
     const { data: job, error } = await supabase
       .from('jobs')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         *,
         clients (
@@ -148,9 +150,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = createClient();
 
     // Verify authentication
@@ -163,7 +166,7 @@ export async function DELETE(
     const { data: invoices } = await supabase
       .from('invoices')
       .select('id')
-      .eq('job_id', params.id)
+      .eq('job_id', id)
       .limit(1);
 
     if (invoices && invoices.length > 0) {
@@ -177,7 +180,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('jobs')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('Error deleting job:', error);
