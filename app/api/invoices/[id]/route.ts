@@ -70,7 +70,7 @@ export async function GET(
     // Calculate totals
     const subtotal = invoice.invoice_items?.reduce((sum: number, item: any) => sum + item.total, 0) || 0;
     const amountPaid = invoice.payments?.reduce((sum: number, payment: any) => sum + payment.amount, 0) || 0;
-    const balanceDue = invoice.total_amount - amountPaid;
+    const balanceDue = subtotal - amountPaid;
 
     return NextResponse.json({
       invoice: {
