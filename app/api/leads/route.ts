@@ -4,6 +4,8 @@ import { LeadSubmissionSchema } from '@/types/schemas';
 import { adminDb } from '@/lib/supabase';
 import { triggerLeadIntake } from '@/lib/n8n';
 import { logger } from '@/lib/logger';
+import { sendLeadConfirmationEmail, sendNewLeadNotification } from '@/lib/email';
+import { sendLeadConfirmationSMS } from '@/lib/sms';
 import type { ClientInsert, PropertyInsert, LeadInsert } from '@/types/database.types';
 
 export async function POST(request: NextRequest) {
@@ -146,6 +148,47 @@ export async function POST(request: NextRequest) {
     }).catch((error) => {
       logger.error('Failed to trigger n8n workflow (non-blocking)', error);
     });
+
+    // Step 5: Send email notifications (non-blocking)
+    const budgetRange = validatedData.budget_min && validatedData.budget_max
+      ? `$${validatedData.budget_min.toLocaleString()} - $${validatedData.budget_max.toLocaleString()}`
+      : 'Not specified';
+
+    // Send confirmation email to client
+    sendLeadConfirmationEmail({
+      clientName: `${validatedData.first_name} ${validatedData.last_name || ''}`.trim(),
+      clientEmail: validatedData.email,
+      serviceType: validatedData.service_type || 'General Inquiry',
+      projectDetails: validatedData.intake_notes || 'No additional details provided',
+      estimatedBudget: budgetRange,
+    }).catch((error) => {
+      logger.error('Failed to send lead confirmation email (non-blocking)', error);
+    });
+
+    // Send notification to admin
+    sendNewLeadNotification({
+      clientName: `${validatedData.first_name} ${validatedData.last_name || ''}`.trim(),
+      clientEmail: validatedData.email,
+      clientPhone: validatedData.phone || 'Not provided',
+      propertyAddress: `${validatedData.address1}, ${validatedData.city}, ${validatedData.state} ${validatedData.zip}`,
+      serviceType: validatedData.service_type || 'General Inquiry',
+      projectDetails: validatedData.intake_notes || 'No additional details provided',
+      estimatedBudget: budgetRange,
+      leadId: lead.lead_id,
+    }).catch((error) => {
+      logger.error('Failed to send new lead notification (non-blocking)', error);
+    });
+
+    // Step 6: Send SMS confirmation (if client opted in and provided phone)
+    if (validatedData.sms_opt_in && validatedData.phone) {
+      sendLeadConfirmationSMS({
+        clientName: validatedData.first_name,
+        clientPhone: validatedData.phone,
+        serviceType: validatedData.service_type || 'your project',
+      }).catch((error) => {
+        logger.error('Failed to send lead confirmation SMS (non-blocking)', error);
+      });
+    }
 
     // Return success response
     return NextResponse.json(
