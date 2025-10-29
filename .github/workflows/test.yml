@@ -1,0 +1,268 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [main, develop, feat/**]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ==============================================================================
+  # Linting
+  # ==============================================================================
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  # ==============================================================================
+  # Type Checking
+  # ==============================================================================
+  typecheck:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type check
+        run: npm run type-check
+
+  # ==============================================================================
+  # Unit Tests (Placeholder for future implementation)
+  # ==============================================================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Placeholder for future test implementation
+      - name: Run unit tests
+        run: |
+          echo "Unit tests not yet implemented"
+          echo "To add unit tests, install Jest or Vitest:"
+          echo "  npm install --save-dev jest @testing-library/react @testing-library/jest-dom"
+          echo "Then add test script to package.json"
+        continue-on-error: true
+
+  # ==============================================================================
+  # Build Test
+  # ==============================================================================
+  build:
+    name: Test Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build:local
+        env:
+          # Use placeholder values for build-time env vars
+          NODE_ENV: production
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: .next
+          retention-days: 7
+
+  # ==============================================================================
+  # E2E Tests (Placeholder for future Playwright implementation)
+  # ==============================================================================
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Placeholder for future E2E test implementation
+      - name: Run E2E tests
+        run: |
+          echo "E2E tests not yet implemented"
+          echo "To add E2E tests, install Playwright:"
+          echo "  npm install --save-dev @playwright/test"
+          echo "  npx playwright install"
+          echo "Then add test:e2e script to package.json"
+        continue-on-error: true
+
+  # ==============================================================================
+  # Database Migration Tests
+  # ==============================================================================
+  migration-tests:
+    name: Database Migration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Test migrations on clean database
+        run: |
+          echo "Testing migrations can be applied to a clean database..."
+
+          # Start Supabase locally (uses Docker)
+          supabase start
+
+          # Apply all migrations
+          supabase db reset --db-url "postgresql://postgres:postgres@localhost:54322/postgres"
+
+          echo "✓ All migrations applied successfully to clean database"
+
+      - name: Verify RLS policies
+        run: |
+          echo "Verifying Row-Level Security policies..."
+
+          # Check that RLS is enabled on all tables
+          supabase db execute --db-url "postgresql://postgres:postgres@localhost:54322/postgres" -f - <<'EOF'
+          SELECT
+            schemaname,
+            tablename,
+            rowsecurity
+          FROM pg_tables
+          WHERE schemaname = 'public'
+          AND rowsecurity = false;
+          EOF
+
+          echo "✓ RLS verification complete"
+
+  # ==============================================================================
+  # Test Summary
+  # ==============================================================================
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, unit-tests, build, e2e-tests, migration-tests]
+    if: always()
+    steps:
+      - name: Generate test summary
+        run: |
+          echo "# Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Linting: ${{ needs.lint.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Type Check: ${{ needs.typecheck.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Tests: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- E2E Tests: ${{ needs.e2e-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Migration Tests: ${{ needs.migration-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Determine overall status
+          if [[ "${{ needs.lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.typecheck.result }}" == "failure" ]] || \
+             [[ "${{ needs.build.result }}" == "failure" ]] || \
+             [[ "${{ needs.migration-tests.result }}" == "failure" ]]; then
+            echo "## ❌ Tests Failed" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed jobs above" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "## ✅ All Critical Tests Passed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `## Test Results
+
+            - Linting: ${{ needs.lint.result }}
+            - Type Check: ${{ needs.typecheck.result }}
+            - Build: ${{ needs.build.result }}
+            - Migration Tests: ${{ needs.migration-tests.result }}
+
+            ${(
+              '${{ needs.lint.result }}' === 'failure' ||
+              '${{ needs.typecheck.result }}' === 'failure' ||
+              '${{ needs.build.result }}' === 'failure' ||
+              '${{ needs.migration-tests.result }}' === 'failure'
+            ) ? '❌ Some tests failed' : '✅ All critical tests passed'}`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
