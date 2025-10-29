@@ -44,16 +44,20 @@ if (shouldInitialize) {
     // In production, sample 10% of transactions to reduce cost
     tracesSampleRate: ENVIRONMENT === 'production' ? 0.1 : 1.0,
 
+    // ==============================================================================
+    // Session Replay
+    // ==============================================================================
+    // Capture 100% of sessions with errors
+    replaysOnErrorSampleRate: 1.0,
+    // Sample 10% of normal sessions in production
+    replaysSessionSampleRate: ENVIRONMENT === 'production' ? 0.1 : 0.5,
+
     // Capture Web Vitals (LCP, FID, CLS)
     integrations: [
       Sentry.browserTracingIntegration(),
 
       // Session Replay for error reproduction
       Sentry.replayIntegration({
-        // Capture 100% of sessions with errors
-        replaysOnErrorSampleRate: 1.0,
-        // Sample 10% of normal sessions in production
-        replaysSessionSampleRate: ENVIRONMENT === 'production' ? 0.1 : 0.5,
         // Mask all text content for privacy
         maskAllText: true,
         // Block all media (images, video, audio)

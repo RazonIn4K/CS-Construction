@@ -381,7 +381,7 @@ async function handleInvoiceUpdated(payload: InvoiceNinjaWebhookPayload) {
         balance_due: invoice.balance,
         updated_at: new Date().toISOString(),
         paid_at:
-          newStatus === 'PAID' && !existingInvoice.status.includes('PAID')
+          newStatus === 'PAID' && !existingInvoice.status?.includes('PAID')
             ? new Date().toISOString()
             : undefined,
       })

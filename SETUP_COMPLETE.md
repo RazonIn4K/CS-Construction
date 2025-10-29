@@ -142,6 +142,19 @@ Run the interactive helper script:
    - `N8N_API_KEY`
    - `N8N_WEBHOOK_BASE_URL`
 
+5. **Resend** (Email Service - required for notifications):
+   - `RESEND_API_KEY` (re_...)
+   - Get your API key from: https://resend.com/api-keys
+   - Configure sender domain and verify DNS records
+   - Set `EMAIL_FROM` (e.g., "CD Home Improvements <noreply@cdhomeimprovementsrockford.com>")
+
+6. **Twilio** (SMS Service - required for notifications):
+   - `TWILIO_ACCOUNT_SID` (AC...)
+   - `TWILIO_AUTH_TOKEN`
+   - `TWILIO_PHONE_NUMBER` (+1...)
+   - Get credentials from: https://console.twilio.com/
+   - Purchase a phone number if you don't have one
+
 **Manual update**:
 ```bash
 doppler secrets set KEY="value"

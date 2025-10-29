@@ -391,8 +391,8 @@ export default function LeadForm({ onSuccess, className = '' }: LeadFormProps) {
             <input
               type="text"
               id="street_address"
-              name="street_address"
-              value={formData.street_address || ''}
+              name="address1"
+              value={formData.address1 || ''}
               onChange={handleChange}
               required
               placeholder="123 Main Street"
@@ -489,8 +489,8 @@ export default function LeadForm({ onSuccess, className = '' }: LeadFormProps) {
               <input
                 type="text"
                 id="zip_code"
-                name="zip_code"
-                value={formData.zip_code || ''}
+                name="zip"
+                value={formData.zip || ''}
                 onChange={handleChange}
                 required
                 placeholder="61101"
@@ -566,8 +566,8 @@ export default function LeadForm({ onSuccess, className = '' }: LeadFormProps) {
             </label>
             <textarea
               id="message"
-              name="message"
-              value={formData.message || ''}
+              name="intake_notes"
+              value={formData.intake_notes || ''}
               onChange={handleChange}
               rows={4}
               placeholder="Tell us about your project... (dimensions, materials, timeline, etc.)"
