@@ -1,0 +1,25 @@
+# ==============================================================================
+# Doppler Configuration
+# ==============================================================================
+# Doppler manages environment variables across all environments
+# Docs: https://docs.doppler.com
+# ==============================================================================
+
+# Setup token for your project (set via: doppler setup)
+setup:
+  project: cd-construction
+  config: dev
+
+# Automatically load secrets for different branches
+configs:
+  # Development (default)
+  dev:
+    path: .
+
+  # Staging environment
+  staging:
+    path: .
+
+  # Production environment
+  production:
+    path: .

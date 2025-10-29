@@ -1,0 +1,130 @@
+# ==============================================================================
+# Git Attributes - Line Ending & Diff Configuration
+# ==============================================================================
+# Repository: https://github.com/RazonIn4K/CS-Construction.git
+# ==============================================================================
+
+# ==============================================================================
+# Auto-detect text files and perform LF normalization
+# ==============================================================================
+* text=auto
+
+# ==============================================================================
+# Source Code Files (Always LF)
+# ==============================================================================
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+
+# ==============================================================================
+# Configuration Files (Always LF)
+# ==============================================================================
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.conf text eol=lf
+
+# ==============================================================================
+# Documentation (Always LF)
+# ==============================================================================
+*.md text eol=lf
+*.mdx text eol=lf
+*.txt text eol=lf
+LICENSE text eol=lf
+README text eol=lf
+
+# ==============================================================================
+# Shell Scripts (Always LF)
+# ==============================================================================
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+
+# ==============================================================================
+# Web Files (Always LF)
+# ==============================================================================
+*.html text eol=lf
+*.htm text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.sass text eol=lf
+*.less text eol=lf
+*.svg text eol=lf
+
+# ==============================================================================
+# Docker Files (Always LF)
+# ==============================================================================
+Dockerfile text eol=lf
+Caddyfile text eol=lf
+docker-compose*.yml text eol=lf
+
+# ==============================================================================
+# Database Files (Always LF)
+# ==============================================================================
+*.sql text eol=lf
+
+# ==============================================================================
+# Environment Files (Always LF)
+# ==============================================================================
+.env* text eol=lf
+
+# ==============================================================================
+# Binary Files (No conversion)
+# ==============================================================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mov binary
+*.mp4 binary
+*.mp3 binary
+*.flv binary
+*.fla binary
+*.swf binary
+*.gz binary
+*.zip binary
+*.7z binary
+*.ttf binary
+*.eot binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# ==============================================================================
+# Specific File Types
+# ==============================================================================
+# Package lock files
+package-lock.json text eol=lf
+yarn.lock text eol=lf
+pnpm-lock.yaml text eol=lf
+
+# Git config
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# ==============================================================================
+# Diff Settings
+# ==============================================================================
+# JSON files - use json diff driver if available
+*.json diff=json
+
+# Markdown files - use markdown diff
+*.md diff=markdown
+
+# ==============================================================================
+# Export-ignore (Files to exclude from git archive)
+# ==============================================================================
+.gitattributes export-ignore
+.gitignore export-ignore
+.github/ export-ignore
+tests/ export-ignore
+*.test.ts export-ignore
+*.test.tsx export-ignore
+*.spec.ts export-ignore
+*.spec.tsx export-ignore

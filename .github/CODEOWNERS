@@ -1,0 +1,102 @@
+# ==============================================================================
+# CODEOWNERS - Automatic Code Review Assignment
+# ==============================================================================
+#
+# This file defines code ownership and required reviewers for different parts
+# of the codebase. When a PR modifies files matching these patterns, the
+# specified owners are automatically requested for review.
+#
+# Syntax: <pattern> <owner> [<owner>...]
+# Patterns use .gitignore syntax
+# Owners can be: @username, @org/team-name, or email
+#
+# More info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# ==============================================================================
+
+# ==============================================================================
+# Default Owners (Applied to everything unless overridden)
+# ==============================================================================
+* @RazonIn4K
+
+# ==============================================================================
+# Database Changes (Require extra scrutiny)
+# ==============================================================================
+supabase/migrations/** @RazonIn4K
+supabase/seed.sql @RazonIn4K
+supabase/config.toml @RazonIn4K
+
+# ==============================================================================
+# API Routes (Backend logic)
+# ==============================================================================
+app/api/** @RazonIn4K
+
+# ==============================================================================
+# Configuration & Infrastructure
+# ==============================================================================
+# Environment and secrets
+.env* @RazonIn4K
+.doppler.yaml @RazonIn4K
+
+# CI/CD Workflows
+.github/workflows/** @RazonIn4K
+
+# Build configuration
+next.config.* @RazonIn4K
+tsconfig.json @RazonIn4K
+package.json @RazonIn4K
+package-lock.json @RazonIn4K
+
+# Linting and formatting
+eslint.config.* @RazonIn4K
+.prettierrc* @RazonIn4K
+
+# Tailwind configuration
+tailwind.config.* @RazonIn4K
+postcss.config.* @RazonIn4K
+
+# ==============================================================================
+# Security-Sensitive Files
+# ==============================================================================
+# Authentication/authorization logic
+app/api/auth/** @RazonIn4K
+lib/auth/** @RazonIn4K
+
+# Webhook handlers (payment/integration security)
+app/api/webhooks/** @RazonIn4K
+
+# ==============================================================================
+# Documentation
+# ==============================================================================
+*.md @RazonIn4K
+docs/** @RazonIn4K
+
+# ==============================================================================
+# Dependencies
+# ==============================================================================
+# Require review for dependency changes (security implications)
+package.json @RazonIn4K
+package-lock.json @RazonIn4K
+pnpm-lock.yaml @RazonIn4K
+yarn.lock @RazonIn4K
+
+# ==============================================================================
+# GitHub Configuration
+# ==============================================================================
+.github/** @RazonIn4K
+
+# ==============================================================================
+# Notes for Future Team Expansion
+# ==============================================================================
+#
+# When adding team members, update CODEOWNERS to distribute review responsibilities:
+#
+# Example multi-owner patterns:
+# app/api/** @RazonIn4K @backend-team
+# app/(dashboard)/** @RazonIn4K @frontend-team
+# supabase/migrations/** @RazonIn4K @database-team
+#
+# Example team-based ownership:
+# @org/backend-engineers
+# @org/frontend-engineers
+# @org/security-team
+#

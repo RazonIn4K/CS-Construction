@@ -1,0 +1,193 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main, develop, feat/**]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run security scans every Monday at 9 AM
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  # ==============================================================================
+  # Dependency Vulnerability Scanning
+  # ==============================================================================
+  dependency-scan:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Run npm audit
+        id: audit
+        run: |
+          echo "Running npm audit..."
+          npm audit --audit-level=moderate --json > audit-report.json || true
+
+          # Check for high/critical vulnerabilities
+          CRITICAL=$(cat audit-report.json | jq '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(cat audit-report.json | jq '.metadata.vulnerabilities.high // 0')
+
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "::error::Found $CRITICAL critical and $HIGH high severity vulnerabilities"
+            exit 1
+          fi
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: audit-report.json
+          retention-days: 30
+
+  # ==============================================================================
+  # Secret Scanning
+  # ==============================================================================
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better detection
+
+      - name: TruffleHog Secret Scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+      - name: Check for common secret patterns
+        run: |
+          echo "Checking for hardcoded secrets..."
+
+          # Check for common secret patterns (excluding test files)
+          PATTERNS=(
+            "SUPABASE_SERVICE_ROLE_KEY.*=.*[a-zA-Z0-9]"
+            "STRIPE_SECRET_KEY.*=.*sk_live"
+            "STRIPE_WEBHOOK_SECRET.*=.*whsec_"
+            "API_KEY.*=.*[a-zA-Z0-9]{32,}"
+            "password.*=.*['\"][^'\"]+['\"]"
+            "secret.*=.*['\"][^'\"]+['\"]"
+          )
+
+          for pattern in "${PATTERNS[@]}"; do
+            if grep -r -E "$pattern" app/ lib/ --exclude-dir=node_modules; then
+              echo "::error::Found potential hardcoded secret: $pattern"
+              exit 1
+            fi
+          done
+
+          echo "No hardcoded secrets detected"
+
+  # ==============================================================================
+  # Code Security Analysis (CodeQL)
+  # ==============================================================================
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript,typescript
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # ==============================================================================
+  # Dockerfile Security Scanning (if Docker is added later)
+  # ==============================================================================
+  # docker-scan:
+  #   name: Docker Image Scan
+  #   runs-on: ubuntu-latest
+  #   if: contains(github.event.head_commit.modified, 'Dockerfile')
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Run Trivy vulnerability scanner
+  #       uses: aquasecurity/trivy-action@master
+  #       with:
+  #         scan-type: 'fs'
+  #         scan-ref: '.'
+  #         format: 'sarif'
+  #         output: 'trivy-results.sarif'
+  #
+  #     - name: Upload Trivy results to GitHub Security
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: 'trivy-results.sarif'
+
+  # ==============================================================================
+  # License Compliance Check
+  # ==============================================================================
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check licenses
+        run: |
+          npx license-checker --summary --production --onlyAllow "MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;0BSD" || true
+          echo "License check completed (warning only, not failing build)"
+
+  # ==============================================================================
+  # Security Report Summary
+  # ==============================================================================
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, secret-scan, codeql-analysis, license-check]
+    if: always()
+    steps:
+      - name: Generate security report
+        run: |
+          echo "# Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependency Scan: ${{ needs.dependency-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Secret Scan: ${{ needs.secret-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- CodeQL Analysis: ${{ needs.codeql-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- License Check: ${{ needs.license-check.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View detailed results in the Security tab" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,113 @@
+# ==============================================================================
+# Dependabot Configuration
+# ==============================================================================
+#
+# Automatically creates pull requests to update dependencies
+# Helps keep the project secure and up-to-date
+#
+# More info: https://docs.github.com/en/code-security/dependabot
+# ==============================================================================
+
+version: 2
+updates:
+  # ==============================================================================
+  # npm Dependencies
+  # ==============================================================================
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Chicago"
+    open-pull-requests-limit: 10
+
+    # Automatically group minor and patch updates
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+    # Separate security updates (always immediate)
+    # Separate major updates (need manual review)
+
+    # Automatically approve and merge security patches for dev dependencies
+    reviewers:
+      - "RazonIn4K"
+
+    # Add labels for easier filtering
+    labels:
+      - "dependencies"
+      - "automated"
+
+    # Prefix commit messages
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+    # Ignore specific dependencies if needed
+    ignore:
+      # Example: Ignore a problematic package
+      # - dependency-name: "package-name"
+      #   versions: ["1.x", "2.x"]
+
+    # Only update production dependencies on schedule
+    # Security updates still come through immediately
+    versioning-strategy: auto
+
+  # ==============================================================================
+  # GitHub Actions
+  # ==============================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Chicago"
+    open-pull-requests-limit: 5
+
+    reviewers:
+      - "RazonIn4K"
+
+    labels:
+      - "github-actions"
+      - "dependencies"
+      - "automated"
+
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+
+# ==============================================================================
+# Dependabot Configuration Notes
+# ==============================================================================
+#
+# Security Updates:
+# - Dependabot will create PRs immediately for security vulnerabilities
+# - These PRs are labeled "security" automatically
+# - Review and merge these ASAP
+#
+# Grouping Strategy:
+# - Minor and patch updates are grouped together (fewer PRs)
+# - Major updates come as individual PRs (need careful review)
+# - Security updates are never grouped (always separate)
+#
+# Auto-merge Candidates:
+# - Security patches for devDependencies
+# - Patch updates that pass all CI checks
+# - Consider enabling auto-merge for these categories
+#
+# Manual Review Required:
+# - Major version bumps (breaking changes likely)
+# - Security updates for production dependencies
+# - Updates to core frameworks (Next.js, React, Supabase)
+#
+# Monitoring:
+# - Check the "Insights > Dependency graph > Dependabot" tab
+# - Review security advisories regularly
+# - Keep an eye on the security tab for vulnerabilities
+#

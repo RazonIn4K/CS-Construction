@@ -1,0 +1,262 @@
+# ==============================================================================
+# CD Home Improvements - Git Ignore Configuration
+# ==============================================================================
+# Comprehensive ignore file for Next.js 16 + TypeScript + Docker + Supabase
+# Repository: https://github.com/RazonIn4K/CS-Construction.git
+# ==============================================================================
+
+# ==============================================================================
+# Dependencies
+# ==============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Optional npm cache
+.npm
+
+# ==============================================================================
+# Environment Variables & Secrets (CRITICAL - DO NOT COMMIT)
+# ==============================================================================
+.env
+.env.local
+.env*.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+.env.test
+.env.test.local
+
+# Keep example files (these are safe to commit)
+!.env.example
+!.env.development.example
+!.env.production.example
+
+# ==============================================================================
+# Next.js
+# ==============================================================================
+/.next/
+/out/
+/build
+.next/cache/
+.next/trace
+
+# ==============================================================================
+# TypeScript
+# ==============================================================================
+*.tsbuildinfo
+*.tsbuildinfo.*
+next-env.d.ts
+
+# ==============================================================================
+# Testing & Coverage
+# ==============================================================================
+/coverage
+/coverage.json
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+.playwright-mcp/
+
+# ==============================================================================
+# Cache Directories
+# ==============================================================================
+.cache/
+.turbo/
+.eslintcache
+.stylelintcache
+
+# ==============================================================================
+# Vercel
+# ==============================================================================
+.vercel
+.vercel.json
+
+# ==============================================================================
+# Sentry (Error Tracking)
+# ==============================================================================
+# CRITICAL: These files contain auth tokens - NEVER commit
+.sentryclirc
+sentry.properties
+.sentry-release/
+
+# Keep Sentry config files (these are safe)
+!sentry.client.config.ts
+!sentry.server.config.ts
+!sentry.edge.config.ts
+
+# ==============================================================================
+# Supabase (Database & Backend)
+# ==============================================================================
+.supabase/
+supabase/.branches/
+supabase/.temp/
+
+# Keep migrations and config (these should be tracked)
+!supabase/migrations/
+!supabase/config.toml
+!supabase/seed.sql
+
+# ==============================================================================
+# Claude AI
+# ==============================================================================
+.claude/*.local.*
+.claude/cache/
+.claude/temp/
+
+# Keep shared settings
+!.claude/settings.json
+
+# ==============================================================================
+# IDE & Editors
+# ==============================================================================
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Visual Studio
+.vs/
+
+# Vim
+*.swp
+*.swo
+*.swn
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# NetBeans
+nbproject/
+
+# ==============================================================================
+# Operating System Files
+# ==============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd/
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# ==============================================================================
+# Logs & Process Files
+# ==============================================================================
+*.log
+*.pid
+*.seed
+*.pid.lock
+logs/
+pids/
+
+# ==============================================================================
+# Certificates & Keys (CRITICAL - Security)
+# ==============================================================================
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# ==============================================================================
+# Temporary Files
+# ==============================================================================
+*.tmp
+*.temp
+*.bak
+*.backup
+tmp/
+temp/
+
+# ==============================================================================
+# Database Files
+# ==============================================================================
+*.sqlite
+*.sqlite3
+*.db
+
+# ==============================================================================
+# Docker (Local overrides only - main docker-compose.yml should be tracked)
+# ==============================================================================
+docker-compose.override.yml
+
+# ==============================================================================
+# Build Artifacts
+# ==============================================================================
+dist/
+.output/
+
+# ==============================================================================
+# Package Manager Lock Files
+# ==============================================================================
+# Note: package-lock.json is tracked for production consistency
+# Uncomment below if using different package managers
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ==============================================================================
+# Misc
+# ==============================================================================
+.vscode-test/
+.history/
+.replit
+.eslintrc.local.js
+.prettierrc.local.js
